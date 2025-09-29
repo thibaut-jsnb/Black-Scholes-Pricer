@@ -1,4 +1,5 @@
 from math import log, sqrt, exp, erf, pi
+from PyQt5 import QtWidgets
 
 S = 100.0     # Spot
 K = 100.0     # Strike
@@ -8,13 +9,86 @@ sigma = 0.25  # Volatility
 q = 0.01      # Dividend (continuous)
 opt_type = "call"  # "call" or "put"
 
+# getting the data using QtWidgets with dialogs boxes
+def get_data(defaults=None):
+    
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication([])
+        _owns_app = True
+    else:
+        _owns_app = False
+    parent = None  # struggle to make the code run, this prevent from having hidden window
+    def _f(x, fallback=0.0):
+       try:
+           return float(str(x).replace(',', '.'))
+       except Exception:
+           return float(fallback)
+    # ask numbers (parameters)
+    def ask_number(title, label, value, minimum, maximum, decimals=6):
+        val, ok = QtWidgets.QInputDialog.getDouble(parent, title, label, value, minimum, maximum, decimals)
+        return (val, ok)
+    # list choice call/put
+    def ask_list(title, label, items, current):
+        idx = items.index(current) if current in items else 0
+        val, ok = QtWidgets.QInputDialog.getItem(parent, title, label, items, idx, False)
+        return (val, ok)
+    # Setting the by default values
+    defaults = defaults or {}
+    S0 = _f(defaults.get("S", 100.0))  #Spot
+    K0 = _f(defaults.get("K", 100.0))  #Strike
+    T0 = _f(defaults.get("T", 1.0))    #Maturity years
+    r0 = _f(defaults.get("r", 0.02))    #RF
+    sigma0 = _f(defaults.get("sigma", 0.20))   # Volatility
+    q0 = _f(defaults.get("q",     0.0))    # dividend
+    t0 = (str(defaults.get("type", "Call")).strip() or "Call").capitalize()
+    if t0 not in ("Call", "Put"):
+        t0 = "Call"  #safety
+    
+    out = {}   #exit dictionnary gathering data
+    
+    for(title, label, key, v0, lo,hi) in [
+        ("Paramters BS", "Spot S",            "S",     S0,     1e-9, 1e12),
+        ("Paramters BS", "Strike K",          "K",     K0,     1e-9, 1e12),
+        ("Paramters BS", "Maturity T (years)",  "T",     T0,     1e-9, 1e6),
+        ("Paramters BS", "Rate r (0.02=2%)",  "r",     r0,     -1.0, 5.0),
+        ("Paramters BS", "Volatility σ (0.2=20%)", "sigma", sigma0, -1.0, 5.0),
+        ("Paramters BS", "Dividend q",       "q",     q0,     -1.0, 5.0),       
+    ]:
+        #open the window
+        val,ok = ask_number(title, label, v0, lo, hi)
+        if not ok:
+            if _owns_app: app.quit()
+            return None
+        out[key] = float(val)
+
+    val,ok = ask_list("Parameters BS", "option type", ["Call", "Put"], t0)
+    if not ok:
+        if _owns_app: app.quit()
+        return None
+    out["type"] = str(val)
+    
+    if _owns_app: app.quit()
+    return out
+
 # Mathematics tools
 def N(x):
     return 0.5 * (1.0 + erf(x / sqrt(2.0)))
 
 def n_pdf(x):
     return (1.0 / sqrt(2.0 * pi)) * exp(-0.5 * x * x)
-
+#define the parameters, either defaults or users one
+params = get_data(defaults={
+    "S": S if 'S' in globals() else 100,
+    "K": K if 'K' in globals() else 100,
+    "T": T if 'T' in globals() else 1.0,
+    "r": r if 'r' in globals() else 0.02,
+    "sigma": sigma if 'sigma' in globals() else 0.20,
+    "q": q if 'q' in globals() else 0.0,
+    "type": opt_type if 'opt_type' in globals() else "Call"})
+if params: #if cancel from the user
+     S, K, T = params["S"], params["K"], params["T"]
+     r, sigma, q, opt_type = params["r"], params["sigma"], params["q"], params["type"]
 # d1, d2 for Black–Scholes
 def _d1_d2(S, K, T, r, sigma, q=0.0):
     if S <= 0 or K <= 0:
