@@ -5,5 +5,5 @@ Simple pricer using Black-Scholes, i will continue to update it, and add new fea
 -Handles special cases:
   - maturity now (T = 0) = intrinsic value
   - zero volatility (σ = 0) = parity lower bound
-## How to use
-Edit the 7 parameters at the top, then run
+## How to use, user part
+I added a new way of getting the parameters, using QtWidgets, this is really useful but it can creates some problems, si i had to add a lot of controls to make sure it will work in any cases
